@@ -60,7 +60,7 @@ type User struct {
 
 ```go
 var user User
-err := dao.Get(db_dao.GetEndPoint[User]{
+err := dao.Get(context.Background(), db_dao.GetEndPoint[User]{
     Model: &user,
     Table: "users",
     Fields: []string{"id", "name", "age"},
@@ -74,7 +74,7 @@ err := dao.Get(db_dao.GetEndPoint[User]{
 
 ```go
 var users []User
-err := dao.Select(db_dao.SelectEndPoint[User]{
+err := dao.Select(context.Background(),db_dao.SelectEndPoint[User]{
     Model: &users,
     Table: "users",
     Fields: []string{"id", "name"},
@@ -89,7 +89,7 @@ err := dao.Select(db_dao.SelectEndPoint[User]{
 
 ```go
 var users []User
-total, err := dao.Paginate(db_dao.PageEndPoint[User]{
+total, err := dao.Paginate(context.Background(), db_dao.PageEndPoint[User]{
     Model:    &users,
     Table:    "users",
     Fields:   []string{"id", "name"},
@@ -106,7 +106,7 @@ total, err := dao.Paginate(db_dao.PageEndPoint[User]{
 ### Insert (插入)
 
 ```go
-affectedRows, err := dao.Insert(db_dao.InsertEndpoint[User]{
+affectedRows, err := dao.Insert(context.Background(), db_dao.InsertEndpoint[User]{
     Table: "users",
     Rows: map[string]any{
         "name": "John Doe",
@@ -118,7 +118,7 @@ affectedRows, err := dao.Insert(db_dao.InsertEndpoint[User]{
 ### Batch Insert (批量插入)
 
 ```go
-affectedRows, err := dao.BatchInsert(db_dao.BatchInsertEndpoint[User]{
+affectedRows, err := dao.BatchInsert(context.Background(), db_dao.BatchInsertEndpoint[User]{
     Table: "users",
     Rows: []map[string]any{
         {"name": "Jane Doe", "age": 28},
@@ -132,7 +132,7 @@ affectedRows, err := dao.BatchInsert(db_dao.BatchInsertEndpoint[User]{
 **注意：** 为安全起见，`Update` 操作需要至少一个条件。
 
 ```go
-affectedRows, err := dao.Update(db_dao.UpdateEndPoint[User]{
+affectedRows, err := dao.Update(context.Background(), db_dao.UpdateEndPoint[User]{
     Table: "users",
     Rows: map[string]any{
         "age": 31,
@@ -148,7 +148,7 @@ affectedRows, err := dao.Update(db_dao.UpdateEndPoint[User]{
 **注意：** 为安全起见，`Delete` 操作需要至少一个条件。
 
 ```go
-affectedRows, err := dao.Delete(db_dao.DeleteEndPoint[User]{
+affectedRows, err := dao.Delete(context.Background(), db_dao.DeleteEndPoint[User]{
     Table: "users",
     Conditions: map[string]any{
         "id = ": 1,
@@ -190,7 +190,7 @@ if err != nil {
 
 ```go
 // Exec (用于 INSERT, UPDATE, DELETE)
-affected, err := dao.Exec("UPDATE users SET age = ? WHERE id = ?", 32, 1)
+affected, err := dao.Exec(context.Background(), "UPDATE users SET age = ? WHERE id = ?", 32, 1)
 
 // QueryToSlice (用于 SELECT)
 var users []User
