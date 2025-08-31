@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -42,33 +41,26 @@ func main() {
 	// --- Insert a new user ---
 	insertEndpoint := db_dao.InsertEndpoint[User]{
 		Table: "users",
-		Rows: []db_dao.Row{
-			{Column: "name", Value: "Alice"},
-			{Column: "age", Value: 25},
-		},
+		Rows:  map[string]any{"name": "Alice", "age": 50},
 	}
 	inserted, err := userDAO.Insert(context.Background(), insertEndpoint)
 	if err != nil {
 		log.Fatalf("failed to insert user: %v", err)
 	}
-	fmt.Printf("Inserted %d user(s)
-", inserted)
+	fmt.Printf("Inserted %d user(s)", inserted)
 
 	// --- Get a user ---
 	var alice User
 	getEndpoint := db_dao.GetEndPoint[User]{
-		Table: "users",
-		Model: &alice,
-		Conditions: []db_dao.Condition{
-			{Column: "name", Operator: "=", Value: "Alice"},
-		},
+		Table:      "users",
+		Model:      &alice,
+		Conditions: map[string]any{"name = ": "Alice"},
 	}
 	err = userDAO.Get(context.Background(), getEndpoint)
 	if err != nil {
 		log.Fatalf("failed to get user: %v", err)
 	}
-	fmt.Printf("Retrieved user: ID=%d, Name=%s, Age=%d
-", alice.ID, alice.Name, alice.Age)
+	fmt.Printf("Retrieved user: ID=%d, Name=%s, Age=%d", alice.ID, alice.Name, alice.Age)
 
 	// --- Select multiple users ---
 	var users []User
@@ -80,10 +72,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to select users: %v", err)
 	}
-	fmt.Printf("Selected %d user(s)
-", len(users))
+	fmt.Printf("Selected %d user(s)", len(users))
 	for _, u := range users {
-		fmt.Printf("- User: ID=%d, Name=%s, Age=%d
-", u.ID, u.Name, u.Age)
+		fmt.Printf("- User: ID=%d, Name=%s, Age=%d", u.ID, u.Name, u.Age)
 	}
 }
