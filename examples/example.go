@@ -47,7 +47,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to insert user: %v", err)
 	}
-	fmt.Printf("Inserted %d user(s)", inserted)
+	fmt.Printf("Inserted %d user(s) \n", inserted)
 
 	// --- Get a user ---
 	var alice User
@@ -60,7 +60,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get user: %v", err)
 	}
-	fmt.Printf("Retrieved user: ID=%d, Name=%s, Age=%d", alice.ID, alice.Name, alice.Age)
+	fmt.Printf("Retrieved user: ID=%d, Name=%s, Age=%d \n", alice.ID, alice.Name, alice.Age)
 
 	// --- Select multiple users ---
 	var users []User
@@ -72,8 +72,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to select users: %v", err)
 	}
-	fmt.Printf("Selected %d user(s)", len(users))
+	fmt.Printf("Selected %d user(s) \n", len(users))
 	for _, u := range users {
-		fmt.Printf("- User: ID=%d, Name=%s, Age=%d", u.ID, u.Name, u.Age)
+		fmt.Printf("- User: ID=%d, Name=%s, Age=%d \n", u.ID, u.Name, u.Age)
 	}
 }
