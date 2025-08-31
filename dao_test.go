@@ -1,11 +1,12 @@
 package db_dao
 
 import (
-	"fmt"
+	"context"
+	"database/sql"
+	"testing"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
-	"reflect"
-	"testing"
 )
 
 // TestUser is a struct used for testing
@@ -28,8 +29,7 @@ func setupTestDAO(t *testing.T) (*DAO[TestUser], func()) {
 		"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 		"name" TEXT,
 		"age" INTEGER
-	);
-`
+	);`
 	_, err = db.Exec(createTableSQL)
 	if err != nil {
 		t.Fatalf("Failed to create test table: %v", err)
@@ -46,48 +46,149 @@ func setupTestDAO(t *testing.T) (*DAO[TestUser], func()) {
 	return dao, teardown
 }
 
-func TestInsertAndGet(t *testing.T) {
+func TestFullCRUDLifecycle(t *testing.T) {
 	dao, teardown := setupTestDAO(t)
 	defer teardown()
 
-	// 1. Test Insert
-	userName := "John Doe"
-	userAge := 30
-	affectedRows, err := dao.Insert(InsertEndpoint[TestUser]{
+	// 1. BatchInsert
+	usersToInsert := []map[string]any{
+		{"name": "Peter", "age": 25},
+		{"name": "Mary", "age": 30},
+		{"name": "John", "age": 35},
+	}
+	affected, err := dao.BatchInsert(BatchInsertEndpoint[TestUser]{
 		Table: "test_users",
-		Rows: map[string]any{
-			"name": userName,
-			"age":  userAge,
-		},
+		Rows:  usersToInsert,
 	})
-
 	if err != nil {
-		t.Fatalf("Insert() returned an unexpected error: %v", err)
+		t.Fatalf("BatchInsert() error = %v", err)
 	}
-	if affectedRows != 1 {
-		t.Fatalf("Expected 1 row to be affected, but got %d", affectedRows)
+	if affected != int64(len(usersToInsert)) {
+		t.Fatalf("BatchInsert() affected rows = %d, want %d", affected, len(usersToInsert))
 	}
 
-	// 2. Test Get
-	var retrievedUser TestUser
-	err = dao.Get(GetEndPoint[TestUser]{
-		Model: &retrievedUser,
-		Table: "test_users",
+	// 2. Select
+	var selectedUsers []TestUser
+	err = dao.Select(SelectEndPoint[TestUser]{
+		Model:  &selectedUsers,
+		Table:  "test_users",
 		Fields: []string{"id", "name", "age"},
-		Conditions: map[string]any{
-			"id = ": 1,
-		},
+		Appends: []string{"ORDER BY id ASC"},
 	})
-
 	if err != nil {
-		t.Fatalf("Get() returned an unexpected error: %v", err)
+		t.Fatalf("Select() error = %v", err)
+	}
+	if len(selectedUsers) != 3 {
+		t.Fatalf("Select() got %d users, want 3", len(selectedUsers))
+	}
+	if selectedUsers[0].Name != "Peter" {
+		t.Fatalf("Select() user 1 name = %s, want Peter", selectedUsers[0].Name)
 	}
 
-	// 3. Verify the result
-	expectedUser := TestUser{ID: 1, Name: userName, Age: userAge}
-	if !reflect.DeepEqual(retrievedUser, expectedUser) {
-		t.Fatalf("Retrieved user does not match expected user.\nExpected: %+v\nGot:      %+v", expectedUser, retrievedUser)
+	// 3. Update
+	newAge := int(40)
+	affected, err = dao.Update(UpdateEndPoint[TestUser]{
+		Table: "test_users",
+		Rows:  map[string]any{"age": newAge},
+		Conditions: map[string]any{"name = ": "John"},
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if affected != 1 {
+		t.Fatalf("Update() affected rows = %d, want 1", affected)
+	}
+	var updatedUser TestUser
+	dao.Get(GetEndPoint[TestUser]{Model: &updatedUser, Table: "test_users", Conditions: map[string]any{"id = ": 3}})
+	if updatedUser.Age != newAge {
+		t.Fatalf("Updated user age = %d, want %d", updatedUser.Age, newAge)
 	}
 
-	fmt.Println("TestInsertAndGet PASSED")
+	// 4. Paginate
+	var paginatedUsers []TestUser
+	total, err := dao.Paginate(PageEndPoint[TestUser]{
+		Model:     &paginatedUsers,
+		Table:     "test_users",
+		PageNo:    2,
+		PageSize:  1,
+		SortField: "id",
+		SortOrder: "ASC",
+	})
+	if err != nil {
+		t.Fatalf("Paginate() error = %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("Paginate() total = %d, want 3", total)
+	}
+	if len(paginatedUsers) != 1 {
+		t.Fatalf("Paginate() got %d users, want 1", len(paginatedUsers))
+	}
+	if paginatedUsers[0].Name != "Mary" {
+		t.Fatalf("Paginate() user name = %s, want Mary", paginatedUsers[0].Name)
+	}
+
+	// 5. Delete
+	affected, err = dao.Delete(DeleteEndPoint[TestUser]{
+		Table:      "test_users",
+		Conditions: map[string]any{"id = ": 1},
+	})
+	if err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if affected != 1 {
+		t.Fatalf("Delete() affected rows = %d, want 1", affected)
+	}
+	var deletedUser TestUser
+	err = dao.Get(GetEndPoint[TestUser]{Model: &deletedUser, Table: "test_users", Conditions: map[string]any{"id = ": 1}})
+	if err != sql.ErrNoRows {
+		t.Fatalf("Expected sql.ErrNoRows after delete, but got err = %v", err)
+	}
+}
+
+func TestTransaction(t *testing.T) {
+	dao, teardown := setupTestDAO(t)
+	defer teardown()
+
+	// 1. Test Commit
+	txDao, err := dao.BeginTx(context.Background())
+	if err != nil {
+		t.Fatalf("BeginTx() error = %v", err)
+	}
+	_, err = txDao.Insert(InsertEndpoint[TestUser]{Table: "test_users", Rows: map[string]any{"name": "CommitUser", "age": 50}})
+	if err != nil {
+		txDao.Rollback()
+		t.Fatalf("tx.Insert() error = %v", err)
+	}
+	if err = txDao.Commit(); err != nil {
+		t.Fatalf("tx.Commit() error = %v", err)
+	}
+
+	var committedUser TestUser
+	err = dao.Get(GetEndPoint[TestUser]{Model: &committedUser, Table: "test_users", Conditions: map[string]any{"name = ": "CommitUser"}})
+	if err != nil {
+		t.Fatalf("Expected to get committed user, but got err = %v", err)
+	}
+	if committedUser.Name != "CommitUser" {
+		t.Fatalf("Got committed user name = %s, want CommitUser", committedUser.Name)
+	}
+
+	// 2. Test Rollback
+	txDao, err = dao.BeginTx(context.Background())
+	if err != nil {
+		t.Fatalf("BeginTx() error = %v", err)
+	}
+	_, err = txDao.Insert(InsertEndpoint[TestUser]{Table: "test_users", Rows: map[string]any{"name": "RollbackUser", "age": 60}})
+	if err != nil {
+		txDao.Rollback()
+		t.Fatalf("tx.Insert() error = %v", err)
+	}
+	if err = txDao.Rollback(); err != nil {
+		t.Fatalf("tx.Rollback() error = %v", err)
+	}
+
+	var rollbackUser TestUser
+	err = dao.Get(GetEndPoint[TestUser]{Model: &rollbackUser, Table: "test_users", Conditions: map[string]any{"name = ": "RollbackUser"}})
+	if err != sql.ErrNoRows {
+		t.Fatalf("Expected sql.ErrNoRows for rolled back user, but got err = %v", err)
+	}
 }
