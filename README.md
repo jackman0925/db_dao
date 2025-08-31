@@ -41,7 +41,7 @@ if err != nil {
     log.Fatalln(err)
 }
 
-dao := db_dao.NewDAO(db)
+dao := db_dao.NewDAO[User](db)
 ```
 
 ### 模型（Models）
@@ -95,7 +95,8 @@ total, err := dao.Paginate(db_dao.PageEndPoint[User]{
     Fields:   []string{"id", "name"},
     PageNo:   1,
     PageSize: 10,
-    SortBy:   "id DESC",
+    SortField: "id",
+    SortOrder: "DESC",
     Conditions: map[string]any{
         "age > ": 20,
     },
@@ -193,5 +194,5 @@ affected, err := dao.Exec("UPDATE users SET age = ? WHERE id = ?", 32, 1)
 
 // QueryToSlice (用于 SELECT)
 var users []User
-err = dao.QueryToSlice("SELECT * FROM users WHERE age > ?", &users, 30)
+err = db_dao.QueryToSlice(dao.GetExecutor(), "SELECT * FROM users WHERE age > ?", &users, 30)
 ```

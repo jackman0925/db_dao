@@ -1,110 +1,59 @@
 package db_dao
 
 import (
-	"errors"
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"reflect"
 	"strings"
 )
 
 // for count
 func (s PageEndPoint[T]) point2Sql() (string, []any, error) {
-	var (
-		query           string
-		tableQuery      string
-		conditionsQuery string
-		conditionsArgs  []any
-		err             error
-	)
-	if tableQuery, err = s.table2string(); err != nil {
-		return query, conditionsArgs, errors.New("table transfer failed")
-	}
-	if conditionsQuery, conditionsArgs, err = s.conditions2string(); err != nil {
-		return query, conditionsArgs, errors.New("condition transfer failed")
+	tableQuery, err := buildTableClause(s.Table)
+	if err != nil {
+		return "", nil, err
 	}
 
-	query = fmt.Sprintf("SELECT COUNT(*) FROM %v %v", tableQuery, conditionsQuery)
+	conditionsQuery, conditionsArgs, err := buildWhereClause(s.Conditions)
+	if err != nil {
+		return "", nil, err
+	}
 
-	return query, conditionsArgs, err
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %v %v", tableQuery, conditionsQuery)
+
+	return query, conditionsArgs, nil
 }
 
 // for select
 func (s PageEndPoint[T]) point2pageSql() (string, []any, error) {
-	var (
-		query           string
-		tableQuery      string
-		conditionsQuery string
-		conditionsArgs  []any
-		fieldsQuery     string
-		err             error
-	)
-	if fieldsQuery, err = s.fields2string(); err != nil {
-		return query, conditionsArgs, errors.New("fields transfer failed")
-	}
-	if tableQuery, err = s.table2string(); err != nil {
-		return query, conditionsArgs, errors.New("table transfer failed")
-	}
-	if conditionsQuery, conditionsArgs, err = s.conditions2string(); err != nil {
-		return query, conditionsArgs, errors.New("condition transfer failed")
-	}
-	query = fmt.Sprintf("SELECT %v FROM %v %v", fieldsQuery, tableQuery, conditionsQuery)
+	fieldsQuery := buildFieldsClause(s.Fields)
 
-	if s.SortBy != "" {
-		query += " ORDER BY " + s.SortBy
+	tableQuery, err := buildTableClause(s.Table)
+	if err != nil {
+		return "", nil, err
 	}
-	query += fmt.Sprintf(" LIMIT %d OFFSET %d", s.PageSize, (s.PageNo-1)*s.PageSize)
 
-	return query, conditionsArgs, err
-}
-
-func (s PageEndPoint[T]) table2string() (string, error) {
-	if s.Table == "" {
-		return "", errors.New("empty table")
+	conditionsQuery, conditionsArgs, err := buildWhereClause(s.Conditions)
+	if err != nil {
+		return "", nil, err
 	}
-	return s.Table, nil
-}
 
-func (s PageEndPoint[T]) fields2string() (string, error) {
-	var query string
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(fmt.Sprintf("SELECT %v FROM %v", fieldsQuery, tableQuery))
 
-	if len(s.Fields) == 0 {
-		return "*", nil
+	if conditionsQuery != "" {
+		queryBuilder.WriteString(" ")
+		queryBuilder.WriteString(conditionsQuery)
 	}
-	if s.Fields[0] == "*" {
-		query = "*"
-	} else {
-		query = strings.Join(s.Fields, ",")
-	}
-	return query, nil
-}
 
-func (s PageEndPoint[T]) conditions2string() (string, []any, error) {
-	var (
-		query             string
-		prepareConditions []string
-		args              []any
-		err               error
-	)
-	if len(s.Conditions) == 0 {
-		return query, args, err
-	}
-	for k, v := range s.Conditions {
-		if reflect.ValueOf(v).Kind() == reflect.Slice {
-			var (
-				inQuery string
-				inArgs  []any
-			)
-			inQuery, inArgs, _ = sqlx.In(" IN (?)", v)
-
-			k = fmt.Sprintf("(%v %v)", k, inQuery)
-			args = append(args, inArgs...)
-		} else {
-			k = fmt.Sprintf("(%v %v)", k, "?")
-			args = append(args, v)
+	if s.SortField != "" {
+		order := "ASC" // 默认为 ASC
+		if strings.ToUpper(s.SortOrder) == "DESC" {
+			order = "DESC"
 		}
-		prepareConditions = append(prepareConditions, k)
+		// 注意：为了最大程度的安全，SortField 应根据业务逻辑进行白名单验证。
+		queryBuilder.WriteString(fmt.Sprintf(" ORDER BY %s %s", s.SortField, order))
 	}
-	query = fmt.Sprintf("WHERE %v", strings.Join(prepareConditions, " AND "))
-	return query, args, nil
+
+	queryBuilder.WriteString(fmt.Sprintf(" LIMIT %d OFFSET %d", s.PageSize, (s.PageNo-1)*s.PageSize))
+
+	return queryBuilder.String(), conditionsArgs, nil
 }

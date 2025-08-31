@@ -25,7 +25,8 @@ type PageEndPoint[T any] struct {
 	Model      *[]T
 	Table      string
 	Conditions map[string]any
-	SortBy     string
+	SortField  string // SortField 用于指定排序字段
+	SortOrder  string // SortOrder 用于指定排序顺序 (ASC/DESC)
 	PageNo     int32
 	PageSize   int32
 	Fields     []string
