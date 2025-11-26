@@ -79,6 +79,22 @@ affectedRows, err := userDAO.Insert(context.Background(), db_dao.InsertEndpoint[
 })
 ```
 
+**复杂查询 (OR Conditions):**
+```go
+// SELECT * FROM users WHERE (age = 30 OR age = 40)
+var users []User
+err := userDAO.Select(context.Background(), db_dao.SelectEndPoint[User]{
+    Model: &users,
+    Table: "users",
+    Conditions: map[string]any{
+        "or_group": db_dao.Or{
+            {"age = ": 30},
+            {"age = ": 40},
+        },
+    },
+})
+```
+
 ### 4. 事务 (Transactions)
 
 事务处理是本库的核心功能之一，通过 `BeginTx` 方法可以轻松实现。

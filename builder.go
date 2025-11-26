@@ -3,9 +3,10 @@ package db_dao
 import (
 	"errors"
 	"fmt"
-	"github.com/jmoiron/sqlx"
 	"reflect"
 	"strings"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // buildTableClause 构建 FROM 子句
@@ -26,6 +27,17 @@ func buildFieldsClause(fields []string) string {
 
 // buildWhereClause 从 conditions map 构建 WHERE 子句
 func buildWhereClause(conditions map[string]any) (string, []any, error) {
+	query, args, err := buildConditions(conditions)
+	if err != nil {
+		return "", nil, err
+	}
+	if query == "" {
+		return "", nil, nil
+	}
+	return fmt.Sprintf("WHERE %v", query), args, nil
+}
+
+func buildConditions(conditions map[string]any) (string, []any, error) {
 	if len(conditions) == 0 {
 		return "", nil, nil
 	}
@@ -35,6 +47,24 @@ func buildWhereClause(conditions map[string]any) (string, []any, error) {
 		args              []any
 	)
 	for k, v := range conditions {
+		if orConds, ok := v.(Or); ok {
+			var orParts []string
+			for _, subCond := range orConds {
+				subQuery, subArgs, err := buildConditions(subCond)
+				if err != nil {
+					return "", nil, err
+				}
+				if subQuery != "" {
+					orParts = append(orParts, fmt.Sprintf("(%s)", subQuery))
+					args = append(args, subArgs...)
+				}
+			}
+			if len(orParts) > 0 {
+				prepareConditions = append(prepareConditions, fmt.Sprintf("(%s)", strings.Join(orParts, " OR ")))
+			}
+			continue
+		}
+
 		// 注意: 此处保留了原始实现中的逻辑。
 		// 对于 value 是切片的情况，原始逻辑可能存在问题，因为它会生成像 `(field IN IN (?,?))` 这样的SQL。
 		// 在后续步骤中可以修复此问题。
@@ -54,7 +84,7 @@ func buildWhereClause(conditions map[string]any) (string, []any, error) {
 		}
 		prepareConditions = append(prepareConditions, k)
 	}
-	return fmt.Sprintf("WHERE %v", strings.Join(prepareConditions, " AND ")), args, nil
+	return strings.Join(prepareConditions, " AND "), args, nil
 }
 
 // buildAppendsClause 构建追加的SQL语句 (如 ORDER BY, GROUP BY)

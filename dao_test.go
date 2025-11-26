@@ -215,3 +215,41 @@ func (s *DAOTestSuite) TestErrorHandling() {
 	_, err = txDAO.BeginTx(context.Background())
 	s.ErrorIs(err, sql.ErrTxDone)
 }
+
+func (s *DAOTestSuite) TestOrConditions() {
+	ctx := context.Background()
+	var users []User
+
+	// Test 1: Simple OR
+	// SELECT * FROM users WHERE (age = 30 OR age = 40)
+	err := s.userDAO.Select(ctx, SelectEndPoint[User]{
+		Model: &users,
+		Table: "users",
+		Conditions: map[string]any{
+			"or_group": Or{
+				{"age = ": 30},
+				{"age = ": 40},
+			},
+		},
+	})
+	s.NoError(err)
+	s.Len(users, 2) // Alice(30) and Bob(40)
+
+	// Test 2: Mixed AND/OR
+	// SELECT * FROM users WHERE name = 'Alice' AND (age = 30 OR age = 40)
+	users = nil
+	err = s.userDAO.Select(ctx, SelectEndPoint[User]{
+		Model: &users,
+		Table: "users",
+		Conditions: map[string]any{
+			"name = ": "Alice",
+			"or_group": Or{
+				{"age = ": 30},
+				{"age = ": 40},
+			},
+		},
+	})
+	s.NoError(err)
+	s.Len(users, 1)
+	s.Equal("Alice", users[0].Name)
+}

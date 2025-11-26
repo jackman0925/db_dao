@@ -58,3 +58,6 @@ type DeleteEndPoint[T any] struct {
 	Table      string
 	Conditions map[string]any
 }
+
+// Or is a slice of conditions that should be OR-ed together.
+type Or []map[string]any
