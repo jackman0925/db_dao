@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.4] - 2026-01-18
+
+### 新增 (Added)
+
+- 引入 `jackc/pgx` 驱动库支持。
+- 新增 `examples/pgx_example` 目录，演示如何使用 Postgres 驱动 `pgx`。
+- 验证此库与 `pgx` 驱动的兼容性。
+
 ## [v1.0.3] - 2025-11-26
 
 ### 新增 (Added)

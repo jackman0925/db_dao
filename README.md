@@ -30,18 +30,23 @@ go get github.com/jmoiron/sqlx
 ```go
 import (
     "github.com/jmoiron/sqlx"
-    _ "github.com/lib/pq" // 或您的数据库驱动
-    "your_project/path/to/db_dao"
+    // 引入 pgx 驱动 (推荐用于 PostgreSQL)
+    _ "github.com/jackc/pgx/v5/stdlib" 
+    // 或者引入其他驱动，如 sqlite3
+    // _ "github.com/mattn/go-sqlite3"
+	"github.com/jackman0925/db_dao"
 )
 
 // ...
 
-db, err := sqlx.Connect("postgres", "user=... dbname=...")
+// 使用 "pgx" 作为驱动名称连接 PostgreSQL
+db, err := sqlx.Connect("pgx", "postgres://user:password@localhost:5432/dbname")
 if err != nil {
     log.Fatalln(err)
 }
 
 // 将 DAO 实例赋值给 IDAO 接口，这是最佳实践
+// 库会自动处理不同数据库的占位符差异 (如 PG 的 $1, $2)
 var userDAO db_dao.IDAO[User] = db_dao.NewDAO[User](db)
 ```
 
