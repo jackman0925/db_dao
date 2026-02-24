@@ -6,7 +6,6 @@ type GetEndPoint[T any] struct {
 	Table      string
 	Conditions map[string]any
 	Appends    []string
-	Options    []string
 	Fields     []string
 }
 
@@ -16,7 +15,6 @@ type SelectEndPoint[T any] struct {
 	Table      string
 	Conditions map[string]any
 	Appends    []string
-	Options    []string
 	Fields     []string
 }
 
@@ -38,7 +36,6 @@ type UpdateEndPoint[T any] struct {
 	Rows       map[string]any
 	Conditions map[string]any
 	Appends    []string
-	Options    []string
 }
 
 // InsertEndpoint Insert选择器

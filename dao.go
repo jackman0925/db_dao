@@ -25,7 +25,11 @@ var _ IDAO[any] = (*DAO[any])(nil)
 func (d *DAO[T]) BeginTx(ctx context.Context, opts ...*sql.TxOptions) (IDAO[T], error) {
 	// Only a *sqlx.DB can begin a transaction.
 	if db, ok := d.db.(*sqlx.DB); ok {
-		tx, err := db.BeginTxx(ctx, nil)
+		var txOpts *sql.TxOptions
+		if len(opts) > 0 {
+			txOpts = opts[0]
+		}
+		tx, err := db.BeginTxx(ctx, txOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +146,10 @@ func (d *DAO[T]) Update(ctx context.Context, endpoint UpdateEndPoint[T]) (int64,
 	if err != nil {
 		return 0, err
 	}
-	args := append(rowsArgs, conditionsArgs...)
+	// Use explicit new slice to avoid mutating rowsArgs when it has spare capacity.
+	args := make([]any, 0, len(rowsArgs)+len(conditionsArgs))
+	args = append(args, rowsArgs...)
+	args = append(args, conditionsArgs...)
 	return d.execContext(ctx, query, args...)
 }
 

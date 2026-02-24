@@ -6,13 +6,13 @@ import (
 	"strings"
 )
 
-func (s BatchInsertEndpoint[T]) point2Sql() (string, []interface{}, error) {
+func (s BatchInsertEndpoint[T]) point2Sql() (string, []any, error) {
 	var (
 		query       string
 		tableQuery  string
 		fieldsQuery string
 		valuesQuery string
-		rowsArgs    []interface{}
+		rowsArgs    []any
 		err         error
 	)
 	if tableQuery, err = s.table2string(); err != nil {
@@ -26,7 +26,7 @@ func (s BatchInsertEndpoint[T]) point2Sql() (string, []interface{}, error) {
 	return query, rowsArgs, err
 }
 
-func (s BatchInsertEndpoint[T]) rows2sql() (string, string, []interface{}, error) {
+func (s BatchInsertEndpoint[T]) rows2sql() (string, string, []any, error) {
 	if len(s.Rows) == 0 {
 		return "", "", nil, errors.New("empty rows")
 	}
@@ -35,7 +35,7 @@ func (s BatchInsertEndpoint[T]) rows2sql() (string, string, []interface{}, error
 		valuesQuery   string
 		prepareFields []string
 		prepareRows   []string
-		args          []interface{}
+		args          []any
 	)
 	// Get fields from the first row
 	for k := range s.Rows[0] {

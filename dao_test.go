@@ -253,3 +253,173 @@ func (s *DAOTestSuite) TestOrConditions() {
 	s.Len(users, 1)
 	s.Equal("Alice", users[0].Name)
 }
+
+func (s *DAOTestSuite) TestBatchInsert() {
+	ctx := context.Background()
+	affected, err := s.userDAO.BatchInsert(ctx, BatchInsertEndpoint[User]{
+		Table: "users",
+		Rows: []map[string]any{
+			{"name": "Charlie", "age": 50},
+			{"name": "Diana", "age": 60},
+		},
+	})
+
+	s.NoError(err)
+	s.Equal(int64(2), affected)
+
+	// Verify both records were inserted
+	var users []User
+	err = s.userDAO.Select(ctx, SelectEndPoint[User]{
+		Model: &users,
+		Table: "users",
+	})
+	s.NoError(err)
+	s.Len(users, 4) // 2 seed + 2 new
+}
+
+func (s *DAOTestSuite) TestSelectWithInClause() {
+	ctx := context.Background()
+	var users []User
+	err := s.userDAO.Select(ctx, SelectEndPoint[User]{
+		Model: &users,
+		Table: "users",
+		Conditions: map[string]any{
+			"id": []int64{1, 2},
+		},
+	})
+
+	s.NoError(err)
+	s.Len(users, 2)
+}
+
+func (s *DAOTestSuite) TestSelectWithFields() {
+	ctx := context.Background()
+	var users []User
+	err := s.userDAO.Select(ctx, SelectEndPoint[User]{
+		Model:  &users,
+		Table:  "users",
+		Fields: []string{"id", "name", "age"},
+	})
+
+	s.NoError(err)
+	s.Len(users, 2)
+}
+
+func (s *DAOTestSuite) TestSelectWithAppends() {
+	ctx := context.Background()
+	var users []User
+	err := s.userDAO.Select(ctx, SelectEndPoint[User]{
+		Model:   &users,
+		Table:   "users",
+		Appends: []string{"ORDER BY age DESC"},
+	})
+
+	s.NoError(err)
+	s.Require().Len(users, 2)
+	s.Equal("Bob", users[0].Name) // Bob(40) should come first
+}
+
+func (s *DAOTestSuite) TestPaginateWithSort() {
+	ctx := context.Background()
+	var users []User
+	total, err := s.userDAO.Paginate(ctx, PageEndPoint[User]{
+		Model:     &users,
+		Table:     "users",
+		PageNo:    1,
+		PageSize:  1,
+		SortField: "age",
+		SortOrder: "DESC",
+	})
+
+	s.NoError(err)
+	s.Equal(int64(2), total)
+	s.Require().Len(users, 1)
+	s.Equal("Bob", users[0].Name) // Bob(40) should be first when sorted DESC
+}
+
+func (s *DAOTestSuite) TestPaginateWithInvalidPageNo() {
+	ctx := context.Background()
+	var users []User
+	_, err := s.userDAO.Paginate(ctx, PageEndPoint[User]{
+		Model:    &users,
+		Table:    "users",
+		PageNo:   0,
+		PageSize: 10,
+	})
+
+	s.Error(err)
+	s.Contains(err.Error(), "pageNo")
+}
+
+func (s *DAOTestSuite) TestPaginateWithInvalidPageSize() {
+	ctx := context.Background()
+	var users []User
+	_, err := s.userDAO.Paginate(ctx, PageEndPoint[User]{
+		Model:    &users,
+		Table:    "users",
+		PageNo:   1,
+		PageSize: 0,
+	})
+
+	s.Error(err)
+	s.Contains(err.Error(), "pageSize")
+}
+
+func (s *DAOTestSuite) TestInsertEmptyTable() {
+	ctx := context.Background()
+	_, err := s.userDAO.Insert(ctx, InsertEndpoint[User]{
+		Table: "",
+		Rows:  map[string]any{"name": "Test"},
+	})
+	s.Error(err)
+}
+
+func (s *DAOTestSuite) TestInsertEmptyRows() {
+	ctx := context.Background()
+	_, err := s.userDAO.Insert(ctx, InsertEndpoint[User]{
+		Table: "users",
+	})
+	s.Error(err)
+}
+
+func (s *DAOTestSuite) TestUpdateEmptyConditions() {
+	ctx := context.Background()
+	_, err := s.userDAO.Update(ctx, UpdateEndPoint[User]{
+		Table: "users",
+		Rows:  map[string]any{"age": 99},
+	})
+	s.Error(err)
+}
+
+func (s *DAOTestSuite) TestDeleteEmptyConditions() {
+	ctx := context.Background()
+	_, err := s.userDAO.Delete(ctx, DeleteEndPoint[User]{
+		Table: "users",
+	})
+	s.Error(err)
+}
+
+func (s *DAOTestSuite) TestBeginTxWithOptions() {
+	ctx := context.Background()
+	txDAO, err := s.userDAO.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSerializable,
+		ReadOnly:  false,
+	})
+	s.Require().NoError(err)
+	s.NotNil(txDAO)
+
+	// Clean up
+	err = txDAO.Rollback()
+	s.NoError(err)
+}
+
+func (s *DAOTestSuite) TestGetNotFound() {
+	ctx := context.Background()
+	var user User
+	err := s.userDAO.Get(ctx, GetEndPoint[User]{
+		Model:      &user,
+		Table:      "users",
+		Conditions: map[string]any{"id = ": 9999},
+	})
+	s.Error(err) // sql.ErrNoRows
+}

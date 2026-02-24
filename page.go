@@ -1,6 +1,7 @@
 package db_dao
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -24,6 +25,13 @@ func (s PageEndPoint[T]) point2Sql() (string, []any, error) {
 
 // for select
 func (s PageEndPoint[T]) point2pageSql() (string, []any, error) {
+	if s.PageNo < 1 {
+		return "", nil, errors.New("pageNo must be >= 1")
+	}
+	if s.PageSize < 1 {
+		return "", nil, errors.New("pageSize must be >= 1")
+	}
+
 	fieldsQuery := buildFieldsClause(s.Fields)
 
 	tableQuery, err := buildTableClause(s.Table)

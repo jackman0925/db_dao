@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.5] - 2026-02-24
+
+### 修复 (Fixed)
+
+- **[Bug]** `BeginTx` 忽略了 `opts ...*sql.TxOptions` 参数，始终传 `nil` 给底层 `BeginTxx`，现已正确传递用户指定的事务选项。
+- **[Bug]** `buildConditions` 中 `IN` 查询生成错误 SQL（双重 `IN IN`），`sqlx.In(" IN (?)", v)` 产生 `" IN (?,?)"` 后再拼接导致 `field IN  IN (?)`。已修复为正确的 `field IN (?, ?)`。
+- **[Bug]** `buildConditions` 中当 condition value 为 `nil` 时，`reflect.ValueOf(nil).Kind()` 会 panic。已增加 nil 值保护。
+- **[Bug]** `Update` 方法使用 `append(rowsArgs, conditionsArgs...)` 可能在 `rowsArgs` 有剩余容量时污染原 slice 数据。已改用显式新 slice 构造。
+- **[Bug]** `PageEndPoint.point2pageSql()` 中 `PageNo <= 0` 或 `PageSize <= 0` 会产生负数 OFFSET 或无效 LIMIT。已增加参数校验。
+
+### 变更 (Changed)
+
+- 移除 `GetEndPoint`、`SelectEndPoint` 和 `UpdateEndPoint` 中未被使用的 `Options` 字段，减少 API 误导。
+- `batch_insert.go` 统一使用 `[]any` 替代 `[]interface{}`，与项目其他文件保持一致。
+
+### 新增 (Added)
+
+- 新增 `builder_test.go`：覆盖所有 SQL 构建函数的单元测试，包含 IN 子句、nil 值、空输入等边界场景。
+- 新增 `endpoint_test.go`：覆盖所有 endpoint `point2Sql()` 方法的单元测试。
+- 新增集成测试：`BatchInsert`、`IN` 查询、`Fields` 选择、`Appends` 排序、分页排序、无效分页参数、空表/空行/空条件错误路径、`BeginTx` 带 `TxOptions`、`Get` 无结果等。
+- 测试覆盖率从原有的基础水平提升至 **89.8%**。
+
 ## [v1.0.4] - 2026-01-18
 
 ### 新增 (Added)

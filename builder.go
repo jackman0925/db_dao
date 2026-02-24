@@ -65,21 +65,24 @@ func buildConditions(conditions map[string]any) (string, []any, error) {
 			continue
 		}
 
-		// 注意: 此处保留了原始实现中的逻辑。
-		// 对于 value 是切片的情况，原始逻辑可能存在问题，因为它会生成像 `(field IN IN (?,?))` 这样的SQL。
-		// 在后续步骤中可以修复此问题。
-		if reflect.ValueOf(v).Kind() == reflect.Slice {
+		// Handle nil values — cannot use reflect on nil
+		if v == nil {
+			prepareConditions = append(prepareConditions, fmt.Sprintf("(%v NULL)", k))
+			continue
+		}
+
+		rv := reflect.ValueOf(v)
+		if rv.Kind() == reflect.Slice {
 			var (
 				inQuery string
 				inArgs  []any
 			)
-			// 原始逻辑
-			inQuery, inArgs, _ = sqlx.In(" IN (?)", v)
+			inQuery, inArgs, _ = sqlx.In("(?)", v)
 
-			k = fmt.Sprintf("(%v%v)", k, inQuery) // 移除原始逻辑中多余的空格
+			k = fmt.Sprintf("(%v IN %v)", k, inQuery)
 			args = append(args, inArgs...)
 		} else {
-			k = fmt.Sprintf("(%v?)", k) // 移除原始逻辑中多余的空格
+			k = fmt.Sprintf("(%v?)", k)
 			args = append(args, v)
 		}
 		prepareConditions = append(prepareConditions, k)
