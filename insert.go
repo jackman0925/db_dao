@@ -37,7 +37,8 @@ func (s InsertEndpoint[T]) rows2sql() (string, string, []any, error) {
 		prepareRows   []string
 		args          []any
 	)
-	for k, v := range s.Rows {
+	for _, k := range sortedKeys(s.Rows) {
+		v := s.Rows[k]
 		prepareFields = append(prepareFields, k)
 		prepareRows = append(prepareRows, "?")
 		args = append(args, v)

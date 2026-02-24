@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -46,7 +47,8 @@ func buildConditions(conditions map[string]any) (string, []any, error) {
 		prepareConditions []string
 		args              []any
 	)
-	for k, v := range conditions {
+	for _, k := range sortedKeys(conditions) {
+		v := conditions[k]
 		if orConds, ok := v.(Or); ok {
 			var orParts []string
 			for _, subCond := range orConds {
@@ -76,8 +78,12 @@ func buildConditions(conditions map[string]any) (string, []any, error) {
 			var (
 				inQuery string
 				inArgs  []any
+				err     error
 			)
-			inQuery, inArgs, _ = sqlx.In("(?)", v)
+			inQuery, inArgs, err = sqlx.In("(?)", v)
+			if err != nil {
+				return "", nil, err
+			}
 
 			k = fmt.Sprintf("(%v IN %v)", k, inQuery)
 			args = append(args, inArgs...)
@@ -107,9 +113,19 @@ func buildSetClauseForUpdate(rows map[string]any) (string, []any, error) {
 		prepareRows []string
 		args        []any
 	)
-	for k, v := range rows {
+	for _, k := range sortedKeys(rows) {
+		v := rows[k]
 		prepareRows = append(prepareRows, fmt.Sprintf("%v = ?", k))
 		args = append(args, v)
 	}
 	return strings.Join(prepareRows, ","), args, nil
+}
+
+func sortedKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }

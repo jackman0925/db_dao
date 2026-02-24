@@ -84,6 +84,17 @@ func TestInsertEndpoint_point2Sql(t *testing.T) {
 		assert.Contains(t, query, "name")
 		assert.Contains(t, args, "Alice")
 	})
+
+	t.Run("deterministic field order", func(t *testing.T) {
+		ep := InsertEndpoint[struct{}]{
+			Table: "users",
+			Rows:  map[string]any{"name": "Alice", "age": 30},
+		}
+		query, args, err := ep.point2Sql()
+		require.NoError(t, err)
+		assert.Equal(t, "INSERT INTO users (age,name) VALUES (?,?)", query)
+		assert.Equal(t, []any{30, "Alice"}, args)
+	})
 }
 
 func TestBatchInsertEndpoint_point2Sql(t *testing.T) {
@@ -126,6 +137,33 @@ func TestBatchInsertEndpoint_point2Sql(t *testing.T) {
 		assert.Len(t, args, 4)
 		// Should have two value groups
 		assert.Contains(t, query, "VALUES")
+	})
+
+	t.Run("deterministic field order", func(t *testing.T) {
+		ep := BatchInsertEndpoint[struct{}]{
+			Table: "users",
+			Rows: []map[string]any{
+				{"name": "Alice", "age": 30},
+				{"age": 40, "name": "Bob"},
+			},
+		}
+		query, args, err := ep.point2Sql()
+		require.NoError(t, err)
+		assert.Equal(t, "INSERT INTO users (age,name) VALUES (?,?),(?,?)", query)
+		assert.Equal(t, []any{30, "Alice", 40, "Bob"}, args)
+	})
+
+	t.Run("inconsistent row fields returns error", func(t *testing.T) {
+		ep := BatchInsertEndpoint[struct{}]{
+			Table: "users",
+			Rows: []map[string]any{
+				{"name": "Alice", "age": 30},
+				{"name": "Bob"},
+			},
+		}
+		_, _, err := ep.point2Sql()
+		assert.Error(t, err)
+		assert.Equal(t, "rows transfer failed", err.Error())
 	})
 }
 

@@ -76,6 +76,13 @@ func TestBuildConditions_InClause(t *testing.T) {
 		assert.Contains(t, query, "?, ?")
 		assert.Equal(t, []any{"Alice", "Bob"}, args)
 	})
+
+	t.Run("IN with empty slice returns error", func(t *testing.T) {
+		_, _, err := buildConditions(map[string]any{
+			"id": []int{},
+		})
+		assert.Error(t, err)
+	})
 }
 
 func TestBuildConditions_NilValue(t *testing.T) {
@@ -104,6 +111,26 @@ func TestBuildSetClauseForUpdate(t *testing.T) {
 		assert.Equal(t, "name = ?", query)
 		assert.Equal(t, []any{"Alice"}, args)
 	})
+
+	t.Run("stable order", func(t *testing.T) {
+		query, args, err := buildSetClauseForUpdate(map[string]any{
+			"b": 2,
+			"a": 1,
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, "a = ?,b = ?", query)
+		assert.Equal(t, []any{1, 2}, args)
+	})
+}
+
+func TestBuildConditions_StableOrder(t *testing.T) {
+	query, args, err := buildConditions(map[string]any{
+		"b = ": 2,
+		"a = ": 1,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "(a = ?) AND (b = ?)", query)
+	assert.Equal(t, []any{1, 2}, args)
 }
 
 func TestBuildAppendsClause(t *testing.T) {

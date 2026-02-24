@@ -37,16 +37,20 @@ func (s BatchInsertEndpoint[T]) rows2sql() (string, string, []any, error) {
 		prepareRows   []string
 		args          []any
 	)
-	// Get fields from the first row
-	for k := range s.Rows[0] {
-		prepareFields = append(prepareFields, k)
-	}
+	prepareFields = sortedKeys(s.Rows[0])
 
 	for _, row := range s.Rows {
+		if len(row) != len(prepareFields) {
+			return "", "", nil, errors.New("inconsistent row fields")
+		}
 		var rowValues []string
 		for _, fieldName := range prepareFields {
+			v, ok := row[fieldName]
+			if !ok {
+				return "", "", nil, errors.New("inconsistent row fields")
+			}
 			rowValues = append(rowValues, "?")
-			args = append(args, row[fieldName])
+			args = append(args, v)
 		}
 		prepareRows = append(prepareRows, "("+strings.Join(rowValues, ",")+")")
 	}
